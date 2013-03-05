@@ -1,0 +1,49 @@
+.TH fetchtag 1 "04 Mar 2013" "fetchtag-0.1.0"
+.SH NAME
+fetchtag - update audio file tags by searching the Internet
+.SH SYNOPSIS
+.B fetchtag
+.BI OPTIONS
+[
+.B DIR
+]
+.SH DESCRIPTION
+.I fetchtag 
+is a simple tool for automatically updating tags of music file
+by searching the Internet. You can specify the 
+.B DIR 
+which contains
+music files. The current working directory will be used
+if 
+.B DIR 
+is omitted. 
+
+.B fetchtag
+uses Lua script as extension for searching on different sites. 
+Currently it only supports a Chinese music website. 
+But some other sites will be added in the future. You can also
+write your own Lua scripts for any sites you like.
+.SH OPTIONS
+.TP 8
+.B "\-h, \-\-help"
+display help message and exit
+.TP 8
+.BI \-a " ARTIST" "\fR,\fP \-\^\-artist=" ARTIST
+specify the artist 
+.TP 8
+.BI \-b " ALBUM" "\fR,\fP \-\^\-album=" ALBUM
+specify the album
+.TP 8
+.BI \-s " SERVER" "\fR,\fP \-\^\-server=" SERVER
+specify the website where you want to search; fetchtag will look for a Lua script named SERVER.lua
+.SH FILES
+.TP 
+/usr/share/fetchtag/douban.lua
+
+the default search server
+.TP 
+$(HOME)/.fetchtag/SERVER.lua
+
+put your own scripts here
+.SH AUTHORS
+Ruikai Liu <lrk700@gmail.com>
