@@ -22,7 +22,12 @@
 #define TAGS_H
 #include "common.h"
 
-
 int 
-id3_set_tag(const char *file, AlbumInfo *album, int index);
+set_tag(const char *file, AlbumInfo *album, int index);
+
+void
+backup_tag(const char *file, FILE *fp);
+
+void
+recover_tag();
 #endif

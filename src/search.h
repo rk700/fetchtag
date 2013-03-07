@@ -19,14 +19,13 @@
 
 #ifndef SEARCH_H
 #define SEARCH_H
-#include <lua.h>
 #include "common.h"
 
 int
 get_lua(const char *file, lua_State **L);
 
 int
-get_host(lua_State *L, char **host, int *port);
+get_host(lua_State *L, char **host, char **port);
 
 int
 get_query(lua_State *L, char **query, const char *artist, const char *album);

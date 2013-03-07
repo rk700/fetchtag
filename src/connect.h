@@ -22,7 +22,7 @@
 #define CONNECT_H
 
 int
-setup_connection(const char *host, int port);
+setup_connection(const char *host, const char *port);
 
 int
 send_query(int sockfd, const char *query);

@@ -19,13 +19,16 @@
 
 
 #include <stdlib.h>
+#include <stdio.h>
+#include <errno.h>
+#include <string.h>
 #include <tag_c.h>
 #include "common.h"
 #include "tags.h"
 
 
 int 
-id3_set_tag(const char *file, AlbumInfo *album, int index) {
+set_tag(const char *file, AlbumInfo *album, int index) {
     DBG("change tags: %s\n", file);
     TagLib_File *tag_file;
     //taglib_set_strings_unicode(false);
@@ -44,3 +47,96 @@ id3_set_tag(const char *file, AlbumInfo *album, int index) {
     taglib_file_free(tag_file);
     return 0;
 }
+
+
+void
+backup_tag(const char *file, FILE *fp) {
+    DBG("read tags: %s\n", file);
+    TagLib_File *tag_file;
+    //taglib_set_strings_unicode(false);
+    if((tag_file=taglib_file_new(file)) == NULL || !taglib_file_is_valid(tag_file)) 
+        return ;
+
+    TagLib_Tag *tag = taglib_file_tag(tag_file);
+
+    fprintf(fp, "%s\n", file);
+    fprintf(fp, "%s\n", taglib_tag_title(tag));
+    fprintf(fp, "%s\n", taglib_tag_artist(tag));
+    fprintf(fp, "%s\n", taglib_tag_album(tag));
+    fprintf(fp, "%i\n", taglib_tag_year(tag));
+    fprintf(fp, "%i\n", taglib_tag_track(tag));
+    fprintf(fp, "%s\n", taglib_tag_genre(tag));
+    fprintf(fp, "%s\n", taglib_tag_comment(tag));
+
+    taglib_tag_free_strings();
+    taglib_file_free(tag_file);
+}
+
+void
+recover_tag() {
+    FILE *fp = NULL;
+    if((fp=fopen("./.fetchtag_bak", "r")) == NULL) {
+        fprintf(stderr, "cannot open \".fetchtag_bak\": %s\n", strerror(errno));
+        return;
+    }
+    char *line = NULL;
+    size_t len = 0;
+    TagLib_File *tag_file;
+    TagLib_Tag *tag;
+    while(getline(&line, &len, fp) != -1) {
+        line[strlen(line)-1] = '\0';
+        if((tag_file=taglib_file_new(line)) == NULL || !taglib_file_is_valid(tag_file))  {
+            continue;
+        }
+        tag = taglib_file_tag(tag_file);
+        if(getline(&line, &len, fp)==-1) 
+            break;
+        line[strlen(line)-1] = '\0';
+        taglib_tag_set_title(tag, line);
+
+        if(getline(&line, &len, fp)==-1) 
+            break;
+        line[strlen(line)-1] = '\0';
+        taglib_tag_set_artist(tag, line);
+
+        if(getline(&line, &len, fp)==-1) 
+            break;
+        line[strlen(line)-1] = '\0';
+        taglib_tag_set_album(tag, line);
+
+        if(getline(&line, &len, fp)==-1) 
+            break;
+        line[strlen(line)-1] = '\0';
+        taglib_tag_set_year(tag, atoi(line));
+
+        if(getline(&line, &len, fp)==-1) 
+            break;
+        line[strlen(line)-1] = '\0';
+        taglib_tag_set_track(tag, atoi(line));
+
+        if(getline(&line, &len, fp)==-1) 
+            break;
+        line[strlen(line)-1] = '\0';
+        taglib_tag_set_genre(tag, line);
+
+        if(getline(&line, &len, fp)==-1) 
+            break;
+        line[strlen(line)-1] = '\0';
+        taglib_tag_set_comment(tag, line);
+
+        taglib_file_save(tag_file);
+        taglib_file_free(tag_file);
+    }
+    free(line);
+    fclose(fp);
+}
+
+
+        
+
+            
+
+
+
+
+

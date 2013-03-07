@@ -19,7 +19,6 @@
 
 #ifndef UTILS_H
 #define UTILS_H
-
 #include "common.h"
 
 int
@@ -33,7 +32,7 @@ parse_track(char *track_line, int *num_track);
 
 char *
 get_line(const char **info);
-//void get_home_server_dir(char *server_path);
+
 void
 print_album(AlbumInfo *album);
 
@@ -41,12 +40,14 @@ void
 free_album(AlbumInfo *album);
 
 int
-assign(const char *file, AlbumInfo *album);
+assign(const char *file, AlbumInfo *album, FILE *fp);
 
 int 
 check_ext(const char *file, int offset);
 
 int
-update_tag(const char *dir, AlbumInfo *album);
+update_tag(const char *dir, AlbumInfo *album, bool backup);
+
+
 extern const char *EXT[];
 #endif

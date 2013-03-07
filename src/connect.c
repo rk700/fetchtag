@@ -21,6 +21,7 @@
 #include <sys/socket.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <errno.h>
 #include <string.h>
 #include <netdb.h>
 #include <arpa/inet.h>
@@ -28,33 +29,37 @@
 #include "common.h"
 
 int
-setup_connection(const char *host, int port) {
+setup_connection(const char *host, const char *port) {
     int sockfd = 0;
     struct hostent *hostent;
     struct sockaddr_in sockaddr;
+    struct addrinfo hints, *res, *ressave;
+    int error;
+    memset(&hints, 0, sizeof(hints));
+    hints.ai_family = AF_INET;
+    hints.ai_socktype = SOCK_STREAM;
 
-    if (!host || port <= 0)
-        return 0;
-
-    if((hostent=gethostbyname(host)) == NULL) {
-        ERROR("cannot resolve host %s\n", host);
-        return 0;
-    }
-
-    memset((void *)&sockaddr, 0, sizeof(sockaddr));
-    memcpy(&sockaddr.sin_addr.s_addr, *(hostent->h_addr_list), sizeof(sockaddr.sin_addr.s_addr));
-    sockaddr.sin_family = AF_INET;
-    sockaddr.sin_port = htons(port);
-
-    if((sockfd=socket(AF_INET,SOCK_STREAM,0)) < 0) {
-        ERROR("cannot create socket\n");
+    if((error=getaddrinfo(host, port, &hints, &res))) {
+        fprintf(stderr, "cannot resolve host: %s\n", gai_strerror(error));
         return 0;
     }
-    if(connect(sockfd, (struct sockaddr *)&sockaddr, sizeof(struct sockaddr_in)) < 0) {
-        ERROR("cannot connect to %s\n", host);
+    ressave = res;
+
+    do {
+        sockfd = socket(AF_INET, SOCK_STREAM, res->ai_protocol);
+        if(sockfd < 0)
+            continue;
+        if(connect(sockfd, res->ai_addr, res->ai_addrlen) == 0)
+            break;
+        close(sockfd);
+    } while((res=res->ai_next) != NULL);
+    
+    if(res == NULL) {
+        fprintf(stderr, "connect error for %s, %s\n", host, port);
         return 0;
     }
-
+    
+    freeaddrinfo(ressave);
     return sockfd;
 }
 
@@ -63,7 +68,7 @@ int
 send_query(int sockfd, const char *query) {
     int bytes_written;
     if((bytes_written=send(sockfd, query, strlen(query)+1, 0)) < 0) {
-        ERROR("error sending query\n");
+        fprintf(stderr, "send error: %s\n", strerror(errno));
         return -1;
     }
     return 0;
@@ -73,7 +78,7 @@ int
 write_to_file(int sockfd, const char *file) {
     FILE *fp;
     if((fp=fopen(file, "w")) == NULL) {
-        ERROR("cannot write file %s\n", file);
+        fprintf(stderr, "cannot write file %s: %s\n", file, strerror(errno));
         return -1;
     }
     char recvline[MAX_STRING_LEN+1];
@@ -84,7 +89,7 @@ write_to_file(int sockfd, const char *file) {
     }
     fclose(fp);
     if(bytes_read < 0) {
-        ERROR("error recv result\n");
+        fprintf(stderr, "cannot recv data: %s\n", strerror(errno));
         return -1;
     }
     return 0;

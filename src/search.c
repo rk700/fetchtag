@@ -23,9 +23,9 @@
 #include <lauxlib.h>
 #include <lualib.h> 
 
-#include "search.h"
 #include "common.h"
 #include "utils.h"
+#include "search.h"
 
 int
 get_lua(const char *file, lua_State **L) {
@@ -42,13 +42,13 @@ get_lua(const char *file, lua_State **L) {
 
 
 int
-get_host(lua_State *L, char **host, int *port) {
+get_host(lua_State *L, char **host, char **port) {
     lua_getglobal(L, "host");
     lua_getglobal(L, "port");
-    if(!lua_isstring(L, -2) || !lua_isnumber(L, -1))
+    if(!lua_isstring(L, -2) || !lua_isstring(L, -1))
         return -1;
     *host = strdup(lua_tostring(L, -2));
-    *port = (int)lua_tonumber(L, -1);
+    *port = strdup(lua_tostring(L, -1));
     lua_pop(L, 2);
     return 0;
 }
@@ -57,7 +57,6 @@ int
 get_query(lua_State *L, char **query, const char *artist, const char *album) {
     lua_getglobal(L, "generateRequest");
     if(!lua_isfunction(L, -1)) {
-        ERROR("no function generateRequest\n");
         return -1;
     }
     lua_newtable(L);
@@ -65,7 +64,6 @@ get_query(lua_State *L, char **query, const char *artist, const char *album) {
     if(album) table_add(L, "album", album);
     lua_call(L, 1, 1);
     if(!lua_isstring(L, -1)) {
-        ERROR("generateRequest should return a string\n");
         return -1;
     }
     *query = strdup(lua_tostring(L, -1));
@@ -85,7 +83,7 @@ get_results(lua_State *L, char *file, int *num_albums) {
     lua_getglobal(L, "parseResult");
     if(!lua_isfunction(L, -1)) {
         *num_albums = 0;
-        ERROR("no function \"parseResult\"\n");
+        fprintf(stderr, "no function \"parseResult\" in Lua script\n");
         return NULL;
     }
     lua_pushstring(L, file);
@@ -94,23 +92,23 @@ get_results(lua_State *L, char *file, int *num_albums) {
     int t = -2;
     if(lua_next(L, t) == 0) {
         *num_albums = 0;
-        ERROR("function \"parseResult\" failed\n");
+        fprintf(stderr, "function \"parseResult\" failed\n");
         return NULL;
     }
     if(!lua_isnumber(L, -1)) {
         *num_albums = 0;
-        ERROR("cannot get number of search results\n");
+        fprintf(stderr, "cannot get number of search results\n");
         return NULL;
     }
     *num_albums = (int)lua_tonumber(L, -1);
     AlbumInfo *albums = (AlbumInfo *)malloc(sizeof(AlbumInfo)*(*num_albums));
     AlbumInfo *albums_ptr = albums;
     lua_pop(L, 1);
-    //int i = 0;
+
     while(lua_next(L, t) != 0) {
         if(!lua_isstring(L, -1)) {
             *num_albums = 0;
-            ERROR("error when parsing results info\n");
+            fprintf(stderr, "error when parsing results info\n");
             free(albums);
             return NULL;
         }

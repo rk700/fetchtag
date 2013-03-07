@@ -1,0 +1,10 @@
+*.o
+*.swp
+config.*
+!config.h.in
+autom4te.cache
+Makefile
+stamp*
+src/tags
+src/.deps
+src/fetchtag

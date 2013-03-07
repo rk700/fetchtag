@@ -19,23 +19,9 @@
 
 #ifndef COMMON_H
 #define COMMON_H
-#include <stdio.h>
 
 #define MAX_STRING_LEN 1000
-
-#define ERROR(...) \
-do{ \
-    fprintf(stderr, "[ERROR]%s %s(Line %d): ",__FILE__,__FUNCTION__,__LINE__); \
-    fprintf(stderr, __VA_ARGS__); \
-}while(0)
-    
    
-#define INFO(...) \
-do{ \
-    fprintf(stderr, "[INFO]%s %s(Line %d): ",__FILE__,__FUNCTION__,__LINE__); \
-    fprintf(stderr, __VA_ARGS__); \
-}while(0)
-    
     
 #ifdef DEBUG    
 #define DBG(...) \

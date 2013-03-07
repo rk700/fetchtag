@@ -20,6 +20,7 @@
 
 #include <getopt.h>
 #include <stdio.h>
+#include <errno.h>
 #include <string.h>
 #include <stdlib.h>
 #include <limits.h>
@@ -27,9 +28,9 @@
 #include <lua.h>
 
 #include "search.h"
+#include "common.h"
 #include "connect.h"
 #include "utils.h"
-#include "common.h"
 
 
 const char *DEFAULT_SERVER="/usr/share/fetchtag/douban.lua";
@@ -41,6 +42,8 @@ static struct option long_opts[] =
     { "album", 1, 0, 'b' },
     { "help", 0, 0, 'h' },
     { "server", 1, 0, 's' },
+    { "recover", 0, 0, 'r' },
+    { "nobackup", 0, 0, 'k' },
     { 0, 0, 0, 0 }
 };
 
@@ -49,6 +52,8 @@ static char *artist = NULL;
 static char *album = NULL;
 static char *server = NULL;
 static char *dir = NULL;
+static bool backup = true;
+static bool recover = false;
 
 
 static void
@@ -61,6 +66,8 @@ show_usage() {
             "%-20s\t%s\n"
             "%-20s\t%s\n"
             "%-20s\t%s\n"
+            "%-20s\t%s\n"
+            "%-20s\t%s\n"
             "%-20s\t%s\n\n"
             "Use DIR to specify the directory containg audio files you want to update.\n"
             "If omitted, the current working directory will be used.\n",
@@ -68,6 +75,8 @@ show_usage() {
             "-b, --album=ALBUM", "specify the album",
             "-s, --server=SERVER", "specify the server for seaching; ", 
             "", "default server(douban) is used if omitted",
+            "-k, --nobackup", "do not backup tags when updating",
+            "-r, --recover", "recover tags",
             "-h, --help", "show this help"
             );
     exit(1000);
@@ -76,7 +85,7 @@ show_usage() {
 static void
 get_parameters(int argc, char *argv[]) {
     int opt;
-    while ((opt=getopt_long(argc, argv, "a:b:hs:", long_opts, NULL)) != -1) {
+    while ((opt=getopt_long(argc, argv, "a:b:hs:rk", long_opts, NULL)) != -1) {
         switch (opt) {
         case 'a':
             artist = strdup(optarg);
@@ -90,6 +99,12 @@ get_parameters(int argc, char *argv[]) {
         case 'h':
             show_usage();
             break;
+        case 'r':
+            recover = true;
+            break;
+        case 'k':
+            backup = false;
+            break;
         default:
             show_usage();
             break;
@@ -100,8 +115,9 @@ get_parameters(int argc, char *argv[]) {
 int
 main(int argc, char *argv[]) {
     get_parameters(argc, argv);
+
     char *cwd = NULL;
-    cwd = getcwd(cwd, 0);
+    cwd=getcwd(cwd, 0);
     if(argc == optind) {
         dir = strdup(cwd);
     }
@@ -109,14 +125,25 @@ main(int argc, char *argv[]) {
         dir = realpath(argv[optind], dir);
     }
     if(!dir) {
-        ERROR("error when getting directory path\n");
+        perror(argv[optind]);
         return -1;
     }
 
-    chdir(dir);
+    if(chdir(dir)) {
+        fprintf(stderr, "error with %s: %s\n", dir, strerror(errno));
+        return -1;
+    }
+    if(recover) {
+        recover_tag();
+        chdir(cwd);
+        free(cwd);
+        free(dir);
+        return 0;
+    }
+
 
     if(!artist && !album) {
-        ERROR("no search field\n");
+        fprintf(stderr, "no search field\n");
         show_usage();
         return -1;
     }
@@ -127,7 +154,7 @@ main(int argc, char *argv[]) {
     if(server) {
         DBG("server not null\n");
         if(get_lua_file(&lua_file, server)) {
-            ERROR("cannot find file %s.lua\n", server);
+            fprintf(stderr, "cannot access file %s.lua: %s\n", server, strerror(errno));
             return -1;
         }
     }
@@ -140,17 +167,17 @@ main(int argc, char *argv[]) {
 
     lua_State *L;
     if(get_lua(lua_file, &L)) {
-        ERROR("error at reading %s\n", lua_file);
+        fprintf(stderr, "error at loading %s\n", lua_file);
         return -1;
     }
 
     DBG("after get lua state\n");
     free(lua_file);
 
-    int port;
+    char *port;
     char *host;
     if(get_host(L, &host, &port)) {
-        ERROR("error when getting host and port\n");
+        fprintf(stderr, "cannot get host and port\n");
         lua_close(L);
         return -1;
     }
@@ -158,7 +185,7 @@ main(int argc, char *argv[]) {
 
     char *query; 
     if(get_query(L, &query, artist, album)) {
-        ERROR("error when calling function \"generateRequest\" in %s.lua\n", server);
+        fprintf(stderr, "error when calling function \"generateRequest\" in %s.lua\n", server);
         lua_close(L);
         return -1;
     }
@@ -183,6 +210,7 @@ main(int argc, char *argv[]) {
 
     free(query);
     free(host);
+    free(port);
 
     if(write_to_file(sockfd, result_file) < 0) {
         lua_close(L);
@@ -227,7 +255,7 @@ main(int argc, char *argv[]) {
                 int idx = atoi(input)-1;
                 if(idx>=0 && idx<num_albums) {
                     printf("updating... ");
-                    printf("done! %d files updated.\n", update_tag(dir, &(albums[idx])));
+                    printf("done! %d files updated.\n", update_tag(dir, &(albums[idx]), backup));
                     break;
                 }
                 else

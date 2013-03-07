@@ -3,7 +3,7 @@ port="80"
 package_name = "fetchtag"
 package_version = "0.1"
 start="0"
-count="20"
+count="10"
 
 function generateRequest(field)
     local words = "&q="
@@ -39,7 +39,7 @@ function addAttrsTracks(s)
     v = string.gsub(v, "\\n", "\t")
     v = string.gsub(v, "\t[^0-9]+[^\t]*\t", "\t")
     v = string.gsub(v, "[0-9]+[%.%s]+", "")
-    v, count = string.gsub(v, "\t", "\t")
+    v, count = string.gsub(v, "\t+", "\t")
     info = info..tostring(count+1).."\t"..v.."\n"
 end
 

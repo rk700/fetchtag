@@ -23,11 +23,12 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <errno.h>
 #include <sys/types.h>
 #include <dirent.h>
 
-#include "utils.h"
 #include "common.h"
+#include "utils.h"
 #include "tags.h"
 
 const char *EXT[] = {".MP3", ".APE", ".FLAC", ".OGG", NULL};
@@ -172,12 +173,13 @@ free_album(AlbumInfo *album) {
         while(num_track-- > 0) {
             free(*track_title++);
         }
+        free(album->track_title);
     }
     if(album->url) free(album->url);
 }
 
 int
-assign(const char *file, AlbumInfo *album) {
+assign(const char *file, AlbumInfo *album, FILE *fp) {
     int i;
     const char *track_title;
     const char *substring;
@@ -185,9 +187,12 @@ assign(const char *file, AlbumInfo *album) {
     for(i=0; i<album->num_track; i++) {
         track_title = *(album->track_title+i);
         if((substring=strcasestr(file, track_title))!=NULL && check_ext(substring, strlen(track_title))) {
-            if(id3_set_tag(file, album, i))
-                ERROR("error when settign tags for %s\n", file);
-            else
+            if(fp) {
+                backup_tag(file, fp);
+            }
+            if(set_tag(file, album, i))
+                fprintf(stderr, "error when setting tags for %s\n", file);
+            else 
                 return 1;
         }
     }
@@ -209,21 +214,26 @@ check_ext(const char *file, int offset) {
 }
 
 int
-update_tag(const char *dir, AlbumInfo *album) {
+update_tag(const char *dir, AlbumInfo *album, bool backup) {
     DIR *dp;
     dp = opendir(dir);
     struct dirent *ep;
     int total = 0;
+    FILE *fp = NULL;
+    if(backup) {
+        fp = fopen("./.fetchtag_bak", "w");
+    }
 
     if(dp) {
         while((ep = readdir(dp))) {
-            total += assign(ep->d_name, album);
+            total += assign(ep->d_name, album, fp);
         }
         closedir(dp);
     }
     else {
-        ERROR("failed at opening the directory %s\n", dir);
+        fprintf(stderr, "failed at reading %s: %s\n", dir, strerror(errno));
     }
+    if(fp) fclose(fp);
     return total;
 }
 
