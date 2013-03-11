@@ -27,19 +27,28 @@
 #include "utils.h"
 #include "search.h"
 
-int
-get_lua(const char *file, lua_State **L) {
-    if((*L = luaL_newstate()) == NULL)
-        return -1;
-    luaL_openlibs(*L);
 
-    if(luaL_loadfile(*L, file) || lua_pcall(*L, 0, LUA_MULTRET, 0)) {
-        lua_close(*L);
-        return -1;
+static void
+table_add(lua_State *L, const char *key, const char *value);
+
+lua_State *
+get_lua(const char *file) {
+    lua_State *L = luaL_newstate();
+    if(L) {
+        luaL_openlibs(L);
+
+        if(luaL_loadfile(L, file) || lua_pcall(L, 0, LUA_MULTRET, 0)) {
+            lua_close(L);
+            L = NULL;
+        }
     }
-    return 0;
+    return L;
 }
 
+/* get_host:
+ * the host and port should be defined in the Lua script
+ * both are of type string
+ */
 
 int
 get_host(lua_State *L, char **host, char **port) {
@@ -53,25 +62,31 @@ get_host(lua_State *L, char **host, char **port) {
     return 0;
 }
 
-int
-get_query(lua_State *L, char **query, const char *artist, const char *album) {
+
+/* get_query:
+ * a function 'generateRequest' should be defined in the Lua script
+ * it returns the HTTP request header for searching
+ */
+
+char *
+get_query(lua_State *L, const char *artist, const char *album) {
     lua_getglobal(L, "generateRequest");
     if(!lua_isfunction(L, -1)) {
-        return -1;
+        return NULL;
     }
     lua_newtable(L);
     if(artist) table_add(L, "artist", artist);
     if(album) table_add(L, "album", album);
     lua_call(L, 1, 1);
     if(!lua_isstring(L, -1)) {
-        return -1;
+        return NULL;
     }
-    *query = strdup(lua_tostring(L, -1));
+    char *query = strdup(lua_tostring(L, -1));
     lua_pop(L, 1);
-    return 0;
+    return query;
 }
  
-void
+static void
 table_add(lua_State *L, const char *key, const char *value) {
     lua_pushstring(L, key);
     lua_pushstring(L, value);
@@ -79,14 +94,14 @@ table_add(lua_State *L, const char *key, const char *value) {
 }
 
 AlbumInfo *
-get_results(lua_State *L, char *file, int *num_albums) {
+get_results(lua_State *L, int *num_albums) {
     lua_getglobal(L, "parseResult");
     if(!lua_isfunction(L, -1)) {
         *num_albums = 0;
         fprintf(stderr, "no function \"parseResult\" in Lua script\n");
         return NULL;
     }
-    lua_pushstring(L, file);
+    lua_pushstring(L, SEARCH_RES);
     lua_call(L, 1, 1);
     lua_pushnil(L);
     int t = -2;
@@ -107,13 +122,17 @@ get_results(lua_State *L, char *file, int *num_albums) {
 
     while(lua_next(L, t) != 0) {
         if(!lua_isstring(L, -1)) {
-            *num_albums = 0;
             fprintf(stderr, "error when parsing results info\n");
-            free(albums);
-            return NULL;
+            lua_pop(L, 1);
+            continue;
         }
         parse_album(albums_ptr++, lua_tostring(L, -1));
         lua_pop(L, 1);
     }
+    *num_albums = (int)(albums_ptr-albums);
+    albums = (AlbumInfo *)realloc((void *)albums, (*num_albums)*sizeof(AlbumInfo));
+    if(albums == NULL)
+        *num_albums = 0;
     return albums;
+
 }

@@ -21,8 +21,8 @@
 #define UTILS_H
 #include "common.h"
 
-int
-get_lua_file(char **lua_file, const char *server);
+char *
+get_lua_file(const char *server);
 
 void
 parse_album(AlbumInfo *album, const char *info);
@@ -30,24 +30,18 @@ parse_album(AlbumInfo *album, const char *info);
 char **
 parse_track(char *track_line, int *num_track);
 
-char *
-get_line(const char **info);
-
 void
 print_album(AlbumInfo *album);
 
 void
 free_album(AlbumInfo *album);
 
-int
-assign(const char *file, AlbumInfo *album, FILE *fp);
-
-int 
-check_ext(const char *file, int offset);
+//int assign(const char *file, AlbumInfo *album, FILE *fp);
 
 int
 update_tag(const char *dir, AlbumInfo *album, bool backup);
 
+//int ** weight_mat(const char *dir, AlbumInfo *album, char ***files_ptr, int *mat_size_ptr, int *nfile_ptr);
 
-extern const char *EXT[];
+//void pair_dis(const char *dir, AlbumInfo *album);
 #endif

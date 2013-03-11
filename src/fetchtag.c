@@ -31,10 +31,14 @@
 #include "common.h"
 #include "connect.h"
 #include "utils.h"
+#include "assign.h"
 
 
-const char *DEFAULT_SERVER="/usr/share/fetchtag/douban.lua";
-const char *DEFAULT_SERVER_DIR="/usr/share/fetchtag/";
+const char *DEFAULT_SERVER = "/usr/share/fetchtag/douban.lua";
+const char *DEFAULT_SERVER_DIR = "/usr/share/fetchtag/";
+const char *SEARCH_RES = ".fetchtag_res";
+const char *BACKUP_FILE = ".fetchtag_bak";
+
 
 static struct option long_opts[] =
 {
@@ -51,13 +55,19 @@ static struct option long_opts[] =
 static char *artist = NULL;
 static char *album = NULL;
 static char *server = NULL;
-static char *dir = NULL;
 static bool backup = true;
 static bool recover = false;
+static lua_State *L = NULL;
+static char *lua_file = NULL;
+static char *port = NULL;
+static char *host = NULL;
+static char *query = NULL; 
+static int num_albums = 0;
+static AlbumInfo *albums = NULL;
 
 
 static void
-show_usage() {
+show_usage(int exit_status) {
     printf("\nUsage:\nfetchtag OPTIONS [DIR]\n"
             "Search album and update tags for each song.\n"
             "Example: fetchtag -a jay\\ chou -b fantasy\n\n"
@@ -79,7 +89,7 @@ show_usage() {
             "-r, --recover", "recover tags",
             "-h, --help", "show this help"
             );
-    exit(1000);
+    exit(exit_status);
 }
 
 static void
@@ -97,7 +107,7 @@ get_parameters(int argc, char *argv[]) {
             server = strdup(optarg);
             break;
         case 'h':
-            show_usage();
+            show_usage(EXIT_SUCCESS);
             break;
         case 'r':
             recover = true;
@@ -106,56 +116,60 @@ get_parameters(int argc, char *argv[]) {
             backup = false;
             break;
         default:
-            show_usage();
+            show_usage(EXIT_FAILURE);
             break;
         }
     }
 }
 
+static void
+cleanup(int status) {
+    free(artist);
+    free(album);
+    free(server);
+    if(L) lua_close(L);
+    free(lua_file);
+    free(host);
+    free(port);
+    free(query);
+    int i;
+    for(i=0; i<num_albums; i++) {
+        free_album(albums+i);
+    }
+    free(albums);
+
+    exit(status);
+}
+
+   
+
 int
 main(int argc, char *argv[]) {
     get_parameters(argc, argv);
 
-    char *cwd = NULL;
-    cwd=getcwd(cwd, 0);
-    if(argc == optind) {
-        dir = strdup(cwd);
-    }
-    else {
-        dir = realpath(argv[optind], dir);
-    }
-    if(!dir) {
-        perror(argv[optind]);
-        return -1;
-    }
+    char *dir = argc > optind ? *(argv+optind) : ".";
 
     if(chdir(dir)) {
         fprintf(stderr, "error with %s: %s\n", dir, strerror(errno));
-        return -1;
+        cleanup(EXIT_FAILURE);
     }
     if(recover) {
-        recover_tag();
-        chdir(cwd);
-        free(cwd);
-        free(dir);
-        return 0;
+        cleanup(recover_tag());
     }
 
 
     if(!artist && !album) {
         fprintf(stderr, "no search field\n");
-        show_usage();
-        return -1;
+        cleanup(EXIT_FAILURE);
     }
+
     DBG("after get parameters\n");
 
-
-    char *lua_file;
     if(server) {
         DBG("server not null\n");
-        if(get_lua_file(&lua_file, server)) {
+        if((lua_file=get_lua_file(server))==NULL) {
             fprintf(stderr, "cannot access file %s.lua: %s\n", server, strerror(errno));
-            return -1;
+            cleanup(EXIT_FAILURE);
         }
     }
     else {
@@ -165,65 +179,48 @@ main(int argc, char *argv[]) {
     DBG("after get lua_file\n");
 
 
-    lua_State *L;
-    if(get_lua(lua_file, &L)) {
+    if((L=get_lua(lua_file))==NULL) {
         fprintf(stderr, "error at loading %s\n", lua_file);
-        return -1;
+        cleanup(EXIT_FAILURE);
     }
 
     DBG("after get lua state\n");
-    free(lua_file);
 
-    char *port;
-    char *host;
     if(get_host(L, &host, &port)) {
         fprintf(stderr, "cannot get host and port\n");
-        lua_close(L);
-        return -1;
+        cleanup(EXIT_FAILURE);
     }
+
     DBG("after get host and port\n");
 
-    char *query; 
-    if(get_query(L, &query, artist, album)) {
+    if((query=get_query(L, artist, album))==NULL) {
         fprintf(stderr, "error when calling function \"generateRequest\" in %s.lua\n", server);
-        lua_close(L);
-        return -1;
+        cleanup(EXIT_FAILURE);
     }
     DBG("after get query\n");
-    free(server);
-    free(artist);
-    free(album);
-
-    char *result_file = (char *)malloc(sizeof(char)*(strlen(dir)+strlen("/.fetchtag_res")+1));
-    strcpy(result_file, dir);
-    strcat(result_file, "/.fetchtag_res");
-    //save result into file ".fetchtag_res"
 
     printf("searching ... ");
     fflush(stdout);
 #if 1
     int sockfd;
     if((sockfd=setup_connection(host, port))==0 || send_query(sockfd, query)<0) {
-        lua_close(L);
-        return -1;
+        cleanup(EXIT_FAILURE);
     }
 
-    free(query);
-    free(host);
-    free(port);
-
-    if(write_to_file(sockfd, result_file) < 0) {
-        lua_close(L);
-        return -1;
+    if(write_to_file(sockfd) < 0) {
+        cleanup(EXIT_FAILURE);
     }
     close(sockfd);
 #endif
+
     printf("done!\n----------------------------------------------------\n");
 
     int num_albums;
-    AlbumInfo *albums = get_results(L, result_file, &num_albums);
+    AlbumInfo *albums = get_results(L, &num_albums);
     lua_close(L);
+    L = NULL;
 
+#if 1
     int i;
     for(i=0; i<num_albums; i++) {
         printf("%2d %s/%s\n", i+1, albums[i].artist, albums[i].album_title);
@@ -246,7 +243,7 @@ main(int argc, char *argv[]) {
             else if(*input == 'v') {
                 int idx = atoi(input+1)-1;
                 if(idx>=0 && idx<num_albums) {
-                    print_album(&(albums[idx]));
+                    print_album(albums+idx);
                 }
                 else
                     printf("Out of bound! Pleast put a number between 0 and %d\n", num_albums);
@@ -255,7 +252,7 @@ main(int argc, char *argv[]) {
                 int idx = atoi(input)-1;
                 if(idx>=0 && idx<num_albums) {
                     printf("updating... ");
-                    printf("done! %d files updated.\n", update_tag(dir, &(albums[idx]), backup));
+                    printf("done! %d files updated.\n", update_tag(dir, albums+idx, backup));
                     break;
                 }
                 else
@@ -264,21 +261,9 @@ main(int argc, char *argv[]) {
         }
         printf("==> ");
     }
-    free(input);
-    unlink(result_file);
-    free(result_file);
 
-#ifdef DEBUG
-    if(albums) print_album(albums);
 #endif
+    unlink(SEARCH_RES);
 
-    for(i=0; i<num_albums; i++) {
-        free_album(&(albums[i]));
-    }
-    free(albums);
-
-    chdir(cwd);
-    free(cwd);
-    free(dir);
-    return 0;
+    cleanup(EXIT_SUCCESS);
 }

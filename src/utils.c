@@ -30,39 +30,59 @@
 #include "common.h"
 #include "utils.h"
 #include "tags.h"
+#include "assign.h"
 
-const char *EXT[] = {".MP3", ".APE", ".FLAC", ".OGG", NULL};
+static const char *EXT[] = {".MP3", ".APE", ".FLAC", ".OGG", NULL};
 
-int
-get_lua_file(char **lua_file, const char *server) {
+//static int check_ext(const char *file, int offset);
+
+static char *
+get_line(const char **info_ptr);
+
+//static int get_title(char *title, const char *file);
+
+static char **
+count_file(DIR *dp, int *count);
+
+static char *
+check_ext(const char *file);
+
+static void
+free_files(char **files, int nfile);
+
+static void
+free_weights(int **weights, int mat_size);
+
+static int ** 
+weight_mat(DIR *dp, AlbumInfo *album, char ***files_ptr, int *mat_size_ptr, int *nfile_ptr);
+
+char *
+get_lua_file(const char *server) {
     char *home_path = getenv("HOME");
-    size_t server_path_len = strlen(home_path) + strlen("/.fetchtag/");
-    size_t defalut_dir_len = strlen(DEFAULT_SERVER_DIR);
-    server_path_len = server_path_len < defalut_dir_len ? defalut_dir_len : server_path_len;
-    server_path_len += strlen(server) + 5;//server.lua\0
+    size_t file_path_len = strlen(home_path) + strlen("/.fetchtag/");
+    size_t default_file_len = strlen(DEFAULT_SERVER_DIR);
+    file_path_len = file_path_len < default_file_len ? default_file_len : file_path_len;
+    file_path_len += strlen(server) + 5;//server.lua\0
 
-    char *server_path = (char *)malloc(sizeof(char)*server_path_len);
-    memset(server_path, 0, sizeof(char)*server_path_len);
-    strcpy(server_path, home_path);
-    strcat(server_path, "/.fetchtag/");
-    strcat(server_path, server);
-    strcat(server_path, ".lua");
-    DBG("%s, %zu\n", server_path, server_path_len);
-    if(!access(server_path, R_OK)) {
-        *lua_file = server_path;
-        return 0;
+    char *lua_file = (char *)calloc(file_path_len, sizeof(char));
+    strcpy(lua_file, home_path);
+    strcat(lua_file, "/.fetchtag/");
+    strcat(lua_file, server);
+    strcat(lua_file, ".lua");
+    DBG("%s, %zu\n", lua_file, file_path_len);
+    if(!access(lua_file, R_OK)) {
+        return lua_file;
     }
     else {
-        strcpy(server_path, DEFAULT_SERVER_DIR); 
-        strcat(server_path, server);
-        strcat(server_path, ".lua");
-        if(!access(server_path, R_OK)) {
-            *lua_file = server_path;
-            return 0;
+        strcpy(lua_file, DEFAULT_SERVER_DIR); 
+        strcat(lua_file, server);
+        strcat(lua_file, ".lua");
+        if(!access(lua_file, R_OK)) {
+            return lua_file;
         }
     }
-    free(server_path);
-    return -1;
+    free(lua_file);
+    return NULL;
 }
 
 /*
@@ -107,7 +127,7 @@ parse_album(AlbumInfo *album, const char *info) {
     album->url = get_line(&info);
 }
 
-char *
+static char *
 get_line(const char **info_ptr) {
     const char *info = *info_ptr;
     if(*info == '\n') {
@@ -178,57 +198,48 @@ free_album(AlbumInfo *album) {
     if(album->url) free(album->url);
 }
 
-int
-assign(const char *file, AlbumInfo *album, FILE *fp) {
-    int i;
-    const char *track_title;
-    const char *substring;
-    DBG("file is %s\n", file);
-    for(i=0; i<album->num_track; i++) {
-        track_title = *(album->track_title+i);
-        if((substring=strcasestr(file, track_title))!=NULL && check_ext(substring, strlen(track_title))) {
-            if(fp) {
-                backup_tag(file, fp);
-            }
-            if(set_tag(file, album, i))
-                fprintf(stderr, "error when setting tags for %s\n", file);
-            else 
-                return 1;
-        }
-    }
-    return 0;
-}
-
-int 
-check_ext(const char *file, int offset) {
-    const char **ext = EXT;
-    const char *fext = file+offset;
-    DBG("check ext %s, %s\n", file, fext);
-    while(*ext) {
-        if(strcasestr(fext, *ext) && strlen(fext)==strlen(*ext)) {
-            return 1;
-        }
-        ext++;
-    }
-    return 0;
-}
 
 int
 update_tag(const char *dir, AlbumInfo *album, bool backup) {
     DIR *dp;
     dp = opendir(dir);
-    struct dirent *ep;
     int total = 0;
     FILE *fp = NULL;
     if(backup) {
-        fp = fopen("./.fetchtag_bak", "w");
+        fp = fopen(BACKUP_FILE, "w");
     }
 
+    int nfile, mat_size;
+    char **files, *file;
+    int **weights; 
+    int *assign;
     if(dp) {
-        while((ep = readdir(dp))) {
-            total += assign(ep->d_name, album, fp);
-        }
+        weights = weight_mat(dp, album, &files, &mat_size, &nfile);
         closedir(dp);
+        if(weights == NULL) {
+            if(fp) fclose(fp);
+            return 0;
+        }
+        
+        assign = munkres(weights, mat_size);
+        int ntrack = album->num_track;
+        char **tracks = album->track_title;
+        int i;
+
+        for(i=0; i<ntrack; ++i) {
+            if(assign[i] < nfile) {
+                file = files[assign[i]];
+                if(fp) 
+                    backup_tag(file, fp);
+                if(set_tag(file, album, i))
+                    fprintf(stderr, "error when setting tags for %s\n", file);
+                else
+                    ++total;
+            }
+        }
+        free_files(files, nfile);
+        free_weights(weights, mat_size);
+        free(assign);
     }
     else {
         fprintf(stderr, "failed at reading %s: %s\n", dir, strerror(errno));
@@ -237,3 +248,110 @@ update_tag(const char *dir, AlbumInfo *album, bool backup) {
     return total;
 }
 
+
+static char *
+check_ext(const char *file) {
+    char *dot;
+    if((dot=strrchr(file, '.'))==NULL) {
+        return NULL;
+    }
+    const char **ext = EXT;
+    while(*ext && strcasecmp(dot, *ext++)!=0) 
+        ;
+    if(*ext == NULL)
+        return NULL;
+    else 
+        return dot;
+}
+
+
+static char **
+count_file(DIR *dp, int *count) {
+    struct dirent *ep;
+    int nfile = TRACK_GUESS;
+    char **file = (char **)malloc(nfile*sizeof(char *));
+    char title[MAX_TITLE_LEN];
+    int i = 0;
+
+    while((ep = readdir(dp))) {
+        if(check_ext(ep->d_name) != NULL) {
+            if(i >= nfile) {
+                nfile *= 2;
+                file = (char **)realloc(file, nfile*sizeof(char *));
+            }
+            file[i++] = strdup(ep->d_name);
+        }
+    }
+    *count = i;
+    if(!i) {//empty dir
+        free(file);
+        file = NULL;
+    }
+    return file;
+}
+
+static void
+free_files(char **array, int size) {
+    int i;
+    for(i=0; i<size; i++) {
+        free(array[i]);
+    }
+    free(array);
+}
+
+static void
+free_weights(int **array, int size) {
+    int i;
+    for(i=0; i<size; i++) {
+        free(array[i]);
+    }
+    free(array);
+}
+
+
+static int **
+weight_mat(DIR *dp, AlbumInfo *album, char ***files_ptr, int *mat_size_ptr, int *nfile_ptr) {
+    char **files;
+    int nfile;
+    files = count_file(dp, &nfile);
+    *files_ptr = files;
+    *nfile_ptr = nfile;
+    if(files == NULL) {//empty dir
+        return NULL;
+    }
+
+    int ntrack = album->num_track;
+    if(ntrack == 0) {//empty track
+        free_files(files, nfile);
+        return NULL;
+    }
+    int mat_size = nfile > ntrack ? nfile : ntrack;
+    *mat_size_ptr = mat_size;
+    int **weights = (int **)malloc(mat_size*sizeof(int *));
+    char **tracks = album->track_title;
+
+    int i, j, *weight, title_len;
+    char *dot;
+
+    init_dp();
+    for(i=0; i<nfile; ++i) {
+        weight = (int *)malloc(mat_size*sizeof(int));
+        dot = strrchr(files[i], '.');
+        title_len = dot - files[i];
+        for(j=0; j<ntrack; ++j) {
+            weight[j] = edit_distance(files[i], title_len, tracks[j], strlen(tracks[j]));
+        }
+        for(; j<mat_size; ++j) {
+            weight[j] = MAX_TITLE_LEN;
+        }//dummy tracks if there're more files than tracks
+        weights[i] = weight;
+    }
+    for(; i<mat_size; ++i) {
+        weight = (int *)malloc(mat_size*sizeof(int));
+        for(j=0; j<mat_size; ++j)
+            weight[j] = MAX_TITLE_LEN;
+        weights[i] = weight;
+    }//dummy file if more tracks than files
+
+    return weights;
+}

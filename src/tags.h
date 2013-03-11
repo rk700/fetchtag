@@ -28,6 +28,6 @@ set_tag(const char *file, AlbumInfo *album, int index);
 void
 backup_tag(const char *file, FILE *fp);
 
-void
+int
 recover_tag();
 #endif

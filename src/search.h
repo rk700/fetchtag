@@ -21,20 +21,17 @@
 #define SEARCH_H
 #include "common.h"
 
-int
-get_lua(const char *file, lua_State **L);
+lua_State *
+get_lua(const char *file);
 
 int
 get_host(lua_State *L, char **host, char **port);
 
-int
-get_query(lua_State *L, char **query, const char *artist, const char *album);
-
-void
-table_add(lua_State *L, const char *key, const char *value);
+char *
+get_query(lua_State *L, const char *artist, const char *album);
 
 AlbumInfo *
-get_results(lua_State *L, char *file, int *num_albums);
+get_results(lua_State *L, int *num_albums);
 
 
 #endif

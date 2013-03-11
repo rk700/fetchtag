@@ -65,7 +65,8 @@ am__installdirs = "$(DESTDIR)$(bindir)"
 PROGRAMS = $(bin_PROGRAMS)
 am_fetchtag_OBJECTS = fetchtag-connect.$(OBJEXT) \
 	fetchtag-utils.$(OBJEXT) fetchtag-search.$(OBJEXT) \
-	fetchtag-tags.$(OBJEXT) fetchtag-fetchtag.$(OBJEXT)
+	fetchtag-tags.$(OBJEXT) fetchtag-fetchtag.$(OBJEXT) \
+	fetchtag-assign.$(OBJEXT)
 fetchtag_OBJECTS = $(am_fetchtag_OBJECTS)
 fetchtag_DEPENDENCIES =
 fetchtag_LINK = $(CCLD) $(fetchtag_CFLAGS) $(CFLAGS) $(AM_LDFLAGS) \
@@ -224,8 +225,8 @@ target_alias = @target_alias@
 top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
-fetchtag_SOURCES = connect.c utils.c search.c tags.c fetchtag.c
-noinst_HEADERS = connect.h common.h utils.h search.h tags.h
+fetchtag_SOURCES = connect.c utils.c search.c tags.c fetchtag.c assign.c
+noinst_HEADERS = connect.h common.h utils.h search.h tags.h assign.h
 fetchtag_CFLAGS = @TAGLIB_C_CFLAGS@ @LUA_CFLAGS@
 fetchtag_LDADD = @TAGLIB_C_LIBS@ @LUA_LIBS@
 all: all-am
@@ -314,6 +315,7 @@ mostlyclean-compile:
 distclean-compile:
 	-rm -f *.tab.c
 
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/fetchtag-assign.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/fetchtag-connect.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/fetchtag-fetchtag.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/fetchtag-search.Po@am__quote@
@@ -403,6 +405,20 @@ fetchtag-fetchtag.obj: fetchtag.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='fetchtag.c' object='fetchtag-fetchtag.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(fetchtag_CFLAGS) $(CFLAGS) -c -o fetchtag-fetchtag.obj `if test -f 'fetchtag.c'; then $(CYGPATH_W) 'fetchtag.c'; else $(CYGPATH_W) '$(srcdir)/fetchtag.c'; fi`
+
+fetchtag-assign.o: assign.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(fetchtag_CFLAGS) $(CFLAGS) -MT fetchtag-assign.o -MD -MP -MF $(DEPDIR)/fetchtag-assign.Tpo -c -o fetchtag-assign.o `test -f 'assign.c' || echo '$(srcdir)/'`assign.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/fetchtag-assign.Tpo $(DEPDIR)/fetchtag-assign.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='assign.c' object='fetchtag-assign.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(fetchtag_CFLAGS) $(CFLAGS) -c -o fetchtag-assign.o `test -f 'assign.c' || echo '$(srcdir)/'`assign.c
+
+fetchtag-assign.obj: assign.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(fetchtag_CFLAGS) $(CFLAGS) -MT fetchtag-assign.obj -MD -MP -MF $(DEPDIR)/fetchtag-assign.Tpo -c -o fetchtag-assign.obj `if test -f 'assign.c'; then $(CYGPATH_W) 'assign.c'; else $(CYGPATH_W) '$(srcdir)/assign.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/fetchtag-assign.Tpo $(DEPDIR)/fetchtag-assign.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='assign.c' object='fetchtag-assign.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(fetchtag_CFLAGS) $(CFLAGS) -c -o fetchtag-assign.obj `if test -f 'assign.c'; then $(CYGPATH_W) 'assign.c'; else $(CYGPATH_W) '$(srcdir)/assign.c'; fi`
 
 ID: $(am__tagged_files)
 	$(am__define_uniq_tagged_files); mkid -fID $$unique

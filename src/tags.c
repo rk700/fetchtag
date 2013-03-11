@@ -72,17 +72,18 @@ backup_tag(const char *file, FILE *fp) {
     taglib_file_free(tag_file);
 }
 
-void
+int
 recover_tag() {
     FILE *fp = NULL;
-    if((fp=fopen("./.fetchtag_bak", "r")) == NULL) {
-        fprintf(stderr, "cannot open \".fetchtag_bak\": %s\n", strerror(errno));
-        return;
+    if((fp=fopen(BACKUP_FILE, "r")) == NULL) {
+        fprintf(stderr, "cannot open %s: %s\n", BACKUP_FILE, strerror(errno));
+        return EXIT_FAILURE;
     }
     char *line = NULL;
     size_t len = 0;
     TagLib_File *tag_file;
     TagLib_Tag *tag;
+    int total = 0;
     while(getline(&line, &len, fp) != -1) {
         line[strlen(line)-1] = '\0';
         if((tag_file=taglib_file_new(line)) == NULL || !taglib_file_is_valid(tag_file))  {
@@ -126,9 +127,12 @@ recover_tag() {
 
         taglib_file_save(tag_file);
         taglib_file_free(tag_file);
+        total++;
     }
     free(line);
     fclose(fp);
+    printf("%d files recovered\n", total);
+    return EXIT_SUCCESS;
 }
 
 

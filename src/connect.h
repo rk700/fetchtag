@@ -27,8 +27,7 @@ setup_connection(const char *host, const char *port);
 int
 send_query(int sockfd, const char *query);
 
-
 int
-write_to_file(int sockfd, const char *file);
+write_to_file(int sockfd);
 
 #endif

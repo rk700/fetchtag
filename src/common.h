@@ -21,7 +21,8 @@
 #define COMMON_H
 
 #define MAX_STRING_LEN 1000
-   
+#define MAX_TITLE_LEN 100   
+#define TRACK_GUESS 12
     
 #ifdef DEBUG    
 #define DBG(...) \
@@ -37,6 +38,8 @@ typedef enum {false, true} bool;
 
 extern const char *DEFAULT_SERVER;
 extern const char *DEFAULT_SERVER_DIR;
+extern const char *SEARCH_RES;
+extern const char *BACKUP_FILE;
 
 typedef struct AlbumInfo_ {
     int num_track;

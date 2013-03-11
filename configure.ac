@@ -23,7 +23,7 @@ AC_TYPE_SIZE_T
 
 # Checks for library functions.
 AC_FUNC_MALLOC
-AC_CHECK_FUNCS([getcwd gethostbyname memset realpath socket strdup strndup])
+AC_CHECK_FUNCS([getline memset socket strdup strndup])
 
 PKG_CHECK_MODULES(LUA, lua)
 PKG_CHECK_MODULES(TAGLIB_C, taglib_c)

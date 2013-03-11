@@ -75,10 +75,10 @@ send_query(int sockfd, const char *query) {
 }
 
 int
-write_to_file(int sockfd, const char *file) {
+write_to_file(int sockfd) {
     FILE *fp;
-    if((fp=fopen(file, "w")) == NULL) {
-        fprintf(stderr, "cannot write file %s: %s\n", file, strerror(errno));
+    if((fp=fopen(SEARCH_RES, "w")) == NULL) {
+        fprintf(stderr, "cannot write file %s: %s\n", SEARCH_RES, strerror(errno));
         return -1;
     }
     char recvline[MAX_STRING_LEN+1];
