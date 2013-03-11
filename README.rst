@@ -10,7 +10,7 @@ Currently it only supports a Chinese music website(music.douban.com), but some o
 Assignment
 ----------
 
-fetchtag will look into the directory, and compute `edit distances <en.wikipedia.org/wiki/Edit_distance>`_ for all pairs of music files and track titles. Then `Munkres Algorithm <en.wikipedia.org/wiki/Hungarian_algorithm>`_ is used for assigning tracks to music files.
+fetchtag will look into the directory, and compute `edit distances <http://en.wikipedia.org/wiki/Edit_distance>`_ for all pairs of music files and track titles. Then `Munkres Algorithm <http://en.wikipedia.org/wiki/Hungarian_algorithm>`_ is used for assigning tracks to music files.
 
 Recover
 -------
@@ -21,9 +21,9 @@ By default, fetchtag will backup tag information before updating. So if you can 
 Dependencies
 ------------
 
-fetchtag uses `Taglib <taglib.github.com>`_ for editing audio file tags. 
+fetchtag uses `Taglib <http://taglib.github.com>`_ for editing audio file tags. 
 
-You should also have `Lua <www.lua.org>`_ installed for running extensions.
+You should also have `Lua <http://www.lua.org>`_ installed for running extensions.
 
 
 Comments and bug reports
