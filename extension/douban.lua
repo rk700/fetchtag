@@ -36,6 +36,7 @@ end
 function addAttrsTracks(s)
     local count
     local v = string.gsub(s:sub(3,-3), "\\t", " ")
+    v = string.gsub(v, "\\r", "")
     v = string.gsub(v, "\\n", "\t")
     v = string.gsub(v, "\t[^0-9]+[^\t]*\t", "\t")
     v = string.gsub(v, "[0-9]+[%.%s]+", "")
